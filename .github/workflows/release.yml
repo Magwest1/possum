@@ -4,6 +4,10 @@ name: Release
 # GitHub release and tag; the macOS job then builds, signs with Developer ID,
 # notarizes, staples, uploads the DMG + ZIP, and only then publishes the release.
 # If signing fails (e.g. secrets not configured yet), the draft stays private.
+#
+# Manual runs: leave `tag` empty for a signed + notarized dry run of main that
+# publishes nothing (the DMG/ZIP are attached to the run as an artifact), or
+# pass an existing tag to rebuild and publish that release.
 
 on:
   push:
@@ -11,8 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to (re)build, e.g. v0.1.0
-        required: true
+        description: Release tag to rebuild and publish (e.g. v0.1.0). Leave empty for a dry run of main.
+        required: false
+        default: ''
         type: string
 
 permissions:
@@ -51,14 +56,16 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.tag == '' }}
     steps:
       - name: Validate tag
+        if: env.DRY_RUN != 'true'
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] || { echo "Invalid tag: $TAG" >&2; exit 1; }
 
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.DRY_RUN == 'true' && github.sha || env.TAG }}
           fetch-depth: 0
 
       - name: Validate signing secrets
@@ -164,7 +171,20 @@ jobs:
           echo "ZIP=$zip" >> "$GITHUB_ENV"
           cat build/SHA256SUMS.txt
 
+      - name: Upload dry-run artifact
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: possum-signed-dry-run-${{ github.run_id }}
+          path: |
+            ${{ env.DMG }}
+            ${{ env.ZIP }}
+            build/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload assets and publish release
+        if: env.DRY_RUN != 'true'
         run: |
           set -euo pipefail
           gh release upload "$TAG" "$DMG" "$ZIP" build/SHA256SUMS.txt --clobber

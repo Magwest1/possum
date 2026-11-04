@@ -17,6 +17,17 @@ Releases are fully automated:
 If any step fails, the release stays a private draft. To retry after fixing the cause, run
 the **Release** workflow manually with the tag (e.g. `v0.1.0`).
 
+### Signed dry run
+
+To check signing and notarization without publishing anything, run the **Release** workflow
+manually with an empty tag:
+
+```bash
+gh workflow run release.yml --repo Magwest1/possum --ref main
+```
+
+The notarized DMG and ZIP are attached to the run as an artifact for 7 days.
+
 ## One-time setup
 
 ### 1. GitHub environment `release`
@@ -34,7 +45,15 @@ The signing job runs in the `release` environment, which only `main` can deploy 
 
 These are the same names the folio app uses, so you can reuse the same values.
 
-With the GitHub CLI (it reads each value from stdin, so it never lands in your shell history):
+The easiest way is the setup script. It checks that the `.p12` contains a Developer ID
+Application identity and that Apple accepts the API key, then uploads all five secrets.
+It prompts for the `.p12` password and the issuer ID and never prints them:
+
+```bash
+scripts/setup-release-secrets.sh ~/path/to/DeveloperID.p12 ~/path/to/AuthKey_XXXX.p8
+```
+
+Or set them manually with the GitHub CLI (it reads each value from stdin, so it never lands in your shell history):
 
 ```bash
 base64 -i DeveloperID.p12 | gh secret set MACOS_CERTIFICATE_P12 --env release --repo Magwest1/possum
