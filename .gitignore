@@ -1,0 +1,22 @@
+# SwiftPM / Xcode
+.build/
+.swiftpm/
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Signing material — never commit
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+AuthKey_*.p8
+.env
+.env.*
+
+# macOS
+.DS_Store

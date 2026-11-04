@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Lint shell scripts and plists
+        run: |
+          bash -n scripts/build-app.sh
+          bash -n scripts/make-dmg.sh
+          plutil -lint Support/*.plist Support/*.entitlements
+
+      - name: Build universal app (ad-hoc signed)
+        run: scripts/build-app.sh
+
+      - name: Verify bundle layout
+        run: |
+          set -euo pipefail
+          app=build/Possum.app
+          test -x "$app/Contents/MacOS/Possum"
+          test -x "$app/Contents/MacOS/PossumHelper"
+          test -f "$app/Contents/Library/LaunchDaemons/io.github.magwest1.possum.helper.plist"
+          test -f "$app/Contents/Resources/AppIcon.icns"
+          lipo "$app/Contents/MacOS/Possum" -verify_arch arm64 x86_64
+          lipo "$app/Contents/MacOS/PossumHelper" -verify_arch arm64 x86_64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$(tr -d '[:space:]' < version.txt)"
