@@ -39,6 +39,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.refresh()
         }
         refreshTimer?.tolerance = 5
+
+        showMenuOnFirstLaunch()
+    }
+
+    /// Menu bar apps have no window, so on the very first launch pop the menu
+    /// open to show the user where Possum lives.
+    private func showMenuOnFirstLaunch() {
+        let key = "hasShownFirstLaunchMenu"
+        guard !defaults.bool(forKey: key) else { return }
+        defaults.set(true, forKey: key)
+        // Give the status item a moment to be placed in the menu bar.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.statusItem.button?.performClick(nil)
+        }
     }
 
     // MARK: Status
